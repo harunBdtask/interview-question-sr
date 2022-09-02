@@ -20,7 +20,7 @@
                         </optgroup>
                         @foreach ($variants as $item)
                         <optgroup label="{{ $item->title }}">
-                            @foreach ($item->variants as $variant)
+                            @foreach ($item->productVariant as $variant)
                                 <option value="{{  $variant->variant  }}">{{  ucfirst($variant->variant)  }}</option>
                             @endforeach
                             </optgroup>

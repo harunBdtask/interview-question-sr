@@ -1,5 +1,11 @@
 <template>
     <section>
+        <div v-show="message" class="alert alert alert-dismissible" :class="message.success ? 'alert-success' : 'alert-danger'">
+            <strong>{{ message.message }}</strong>
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
         <div class="row">
             <div class="col-md-6">
                 <div class="card shadow mb-4">
@@ -7,18 +13,20 @@
                         <div class="form-group">
                             <label for="">Product Name</label>
                             <input type="text" v-model="product_name" placeholder="Product Name" class="form-control">
+                            <span class="invalid-feedback" v-if="errors && errors['title']">{{ errors['title'][0] }}</span>
                         </div>
                         <div class="form-group">
                             <label for="">Product SKU</label>
                             <input type="text" v-model="product_sku" placeholder="Product Name" class="form-control">
+                            <span class="invalid-feedback" v-if="errors && errors['sku']">{{ errors['sku'][0] }}</span>
                         </div>
                         <div class="form-group">
                             <label for="">Description</label>
                             <textarea v-model="description" id="" cols="30" rows="4" class="form-control"></textarea>
+                            <span class="invalid-feedback" v-if="errors && errors['description']">{{ errors['description'][0] }}</span>
                         </div>
                     </div>
                 </div>
-
                 <div class="card shadow mb-4">
                     <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
                         <h6 class="m-0 font-weight-bold text-primary">Media</h6>
@@ -28,7 +36,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="col-md-6">
                 <div class="card shadow mb-4">
                     <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
@@ -49,7 +56,7 @@
                             </div>
                             <div class="col-md-8">
                                 <div class="form-group">
-                                    <label v-if="product_variant.length != 1" @click="product_variant.splice(index,1); checkVariant"
+                                    <label v-if="product_variant.length != 1" @click="product_variant.splice(index,1), checkVariant"
                                            class="float-right text-primary"
                                            style="cursor: pointer;">Remove</label>
                                     <label v-else for="">.</label>
@@ -61,7 +68,6 @@
                     <div class="card-footer" v-if="product_variant.length < variants.length && product_variant.length < 3">
                         <button @click="newVariant" class="btn btn-primary">Add another option</button>
                     </div>
-
                     <div class="card-header text-uppercase">Preview</div>
                     <div class="card-body">
                         <div class="table-responsive">
@@ -90,9 +96,8 @@
                 </div>
             </div>
         </div>
-
-        <button @click="saveProduct" type="submit" class="btn btn-lg btn-primary">Save</button>
-        <button type="button" class="btn btn-secondary btn-lg">Cancel</button>
+        <button @click="saveProduct" type="submit" class="btn btn-lg btn-primary" :disabled="loading">{{ loading ? 'Saving...' : 'Save' }}</button>
+        <button @click.prevent="pageExit" class="btn btn-secondary btn-lg">Cancel</button>
     </section>
 </template>
 
@@ -110,14 +115,18 @@ export default {
         variants: {
             type: Array,
             required: true
+        },
+        product: {
+            type: Object,
+            required: false,
         }
     },
     data() {
         return {
+            product_id: '',
             product_name: '',
             product_sku: '',
             description: '',
-            images: [],
             product_variant: [
                 {
                     option: this.variants[0].id,
@@ -126,35 +135,41 @@ export default {
             ],
             product_variant_prices: [],
             dropzoneOptions: {
-                url: 'https://httpbin.org/post',
+                url: '/product/image',
                 thumbnailWidth: 150,
                 maxFilesize: 0.5,
-                headers: {"My-Awesome-Header": "header value"}
-            }
+                headers: {
+                    "X-CSRF-TOKEN": document.head.querySelector("[name=csrf-token]").content
+                },
+                success: (file, response) => {
+                    this.product_id = response.id;
+                },
+                sending: (file, xhr, formData) => {
+                    formData.append("id", this.product_id);
+                }
+            },
+            message: '',
+            errors: '',
+            loading: false,
+            is_editing: false,
         }
     },
     methods: {
-        // it will push a new object into product variant
         newVariant() {
             let all_variants = this.variants.map(el => el.id)
             let selected_variants = this.product_variant.map(el => el.option);
             let available_variants = all_variants.filter(entry1 => !selected_variants.some(entry2 => entry1 == entry2))
-            // console.log(available_variants)
-
             this.product_variant.push({
                 option: available_variants[0],
                 tags: []
             })
         },
-
-        // check the variant and render all the combination
         checkVariant() {
             let tags = [];
             this.product_variant_prices = [];
             this.product_variant.filter((item) => {
                 tags.push(item.tags);
             })
-
             this.getCombn(tags).forEach(item => {
                 this.product_variant_prices.push({
                     title: item,
@@ -163,8 +178,6 @@ export default {
                 })
             })
         },
-
-        // combination algorithm
         getCombn(arr, pre) {
             pre = pre || '';
             if (!arr.length) {
@@ -176,32 +189,66 @@ export default {
             }, []);
             return ans;
         },
-
-        // store product into database
+        pageExit() {
+            window.location = `/product`;
+        },
         saveProduct() {
+            this.loading = true;
             let product = {
+                id: this.product_id,
                 title: this.product_name,
                 sku: this.product_sku,
                 description: this.description,
-                product_image: this.images,
                 product_variant: this.product_variant,
                 product_variant_prices: this.product_variant_prices
             }
-
-
-            axios.post('/product', product).then(response => {
-                console.log(response.data);
-            }).catch(error => {
-                console.log(error);
-            })
-
-            console.log(product);
-        }
-
+            if(this.is_editing) {
+                axios.put(`/product/${this.product_id}`, product).then(response => {
+                    this.message = response.data;
+                    this.loading = false;
+                }).catch(error => {
+                    this.errors = error.response.data.errors;
+                    this.loading = false;
+                });
+            }else {
+                axios.post('/product', product).then(response => {
+                    this.message = response.data;
+                    this.loading = false;
+                    if (response.data.success) {
+                        this.product_id = '';
+                        this.product_name = '';
+                        this.product_sku = '';
+                        this.description = '';
+                        this.product_variant_prices = '';
+                    }
+                }).catch(error => {
+                    this.errors = error.response.data.errors;
+                    this.loading = false;
+                })
+            }
+        },
 
     },
     mounted() {
-        console.log('Component mounted.')
+        if (this.product) {
+            this.is_editing = true;
+            this.product_id = this.product.id;
+            this.product_name = this.product.title;
+            this.product_sku = this.product.sku;
+            this.description = this.product.description;
+            this.product_variant_prices = this.product.prices;
+            this.product.variants.map(variant => {
+                let product_variant = this.product_variant.find(product_variant => variant.id == product_variant.option);
+                if(product_variant){
+                    product_variant.tags.push(variant.pivot.variant);
+                } else {
+                    this.product_variant.push({
+                        option: variant.id,
+                        tags: [variant.pivot.variant],
+                    });
+                }
+            });
+        }
     }
 }
 </script>

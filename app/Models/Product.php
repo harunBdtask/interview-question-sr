@@ -27,29 +27,24 @@ class Product extends Model
         $price_to   = $request->input('price_to');
         $date       = $request->input('date');
         $variant   = $request->input('variant');
-        
         $query->when($title, function($q) use ($title) {
             $q->where('title', 'LIKE', "%{$title}%");
         });
-
         $query->when($price_from, function($q) use ($price_from) {
             $q->whereHas('variantPrices', function($q) use ($price_from) {
                 $q->where('price', '>=', $price_from);
             });
         });
-
         $query->when($price_to, function($q) use ($price_to) {
             $q->whereHas('variantPrices', function($q) use ($price_to) {
                 $q->where('price', '<=', $price_to);
             });
         });
-
         $query->when($variant, function($q) use ($variant) {
             $q->whereHas('variants', function($q) use ($variant) {
                 $q->where('variant', $variant);
             });
         });
-        
         $query->when($date, function($q) use ($date) {
             $q->whereDate('created_at', $date);
         });
@@ -62,7 +57,6 @@ class Product extends Model
         $variant_one = $variantPrice->variant_one ? ucfirst($variantPrice->variant_one->variant) : '';
         $variant_two = $variantPrice->variant_two ? ucfirst($variantPrice->variant_two->variant) : '';
         $variant_three = $variantPrice->variant_three ? ucfirst($variantPrice->variant_three->variant) : '';
-
         return "$variant_one/$variant_two/$variant_three";
     }
 
