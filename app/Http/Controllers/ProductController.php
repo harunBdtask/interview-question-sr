@@ -10,14 +10,13 @@ use Illuminate\Http\Request;
 
 class ProductController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\Contracts\Foundation\Application|\Illuminate\Contracts\View\Factory|\Illuminate\Http\Response|\Illuminate\View\View
-     */
-    public function index()
+    public function index(Request $request)
     {
-        return view('products.index');
+        $products = Product::filter($request)->paginate(2);
+        $variants = Variant::with(['variants' => function($query){
+            $query->groupBy('variant');
+        }])->get();
+        return view('products.index', compact('products', 'variants'));
     }
 
     /**
