@@ -54,9 +54,9 @@ class Product extends Model
 
     public function generateVariant( $variantPrice )
     {
-        $variant_one = $variantPrice->variant_one ? ucfirst($variantPrice->variant_one->variant) : '';
-        $variant_two = $variantPrice->variant_two ? ucfirst($variantPrice->variant_two->variant) : '';
-        $variant_three = $variantPrice->variant_three ? ucfirst($variantPrice->variant_three->variant) : '';
+        $variant_one = $variantPrice->variant_one ? $variantPrice->variant_one->variant : '';
+        $variant_two = $variantPrice->variant_two ? $variantPrice->variant_two->variant : '';
+        $variant_three = $variantPrice->variant_three ? $variantPrice->variant_three->variant : '';
         return "$variant_one/$variant_two/$variant_three";
     }
 
